@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<!-- Required meta tags -->
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+
+		<!-- Bootstrap CSS -->
+		<link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.11.3/css/jquery.dataTables.css" />
+		<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-1BmE4kWBq78iYhFldvKuhfTAU6auU8tT94WrHftjDbrCEXSU1oBoqyl2QvZ6jIW3" crossorigin="anonymous" />
+		<style>
+			body {
+				background-image: url(bg.jpg);
+				background-size: cover;
+				background-repeat: no-repeat;
+			}
+			button {
+				cursor: pointer;
+			}
+		</style>
+		<title>Tubes IoT</title>
+	</head>
+	<body>
+		<div class="container py-3">
+			<div class="row d-flex justify-content-center">
+				<div class="col-md-12 mb-4 text-center">
+					<div class="card shadow">
+						<div class="card-header">
+							<h3>Data Tables IoT</h3>
+							<h5 id="text-status">Auto Refresh : <span>False</span></h5>
+						</div>
+					</div>
+				</div>
+				<div class="col-md-6">
+					<div class="card shadow">
+						<div class="card-body">
+							<table class="table" id="pulse_datatables">
+								<thead>
+									<tr>
+										<th>Nadi</th>
+									</tr>
+								</thead>
+								<tbody></tbody>
+							</table>
+						</div>
+					</div>
+				</div>
+				<div class="col-md-6">
+					<div class="card shadow">
+						<div class="card-body">
+							<table class="table" id="temp_datatables">
+								<thead>
+									<tr>
+										<th scope="col">Suhu</th>
+									</tr>
+								</thead>
+								<tbody id="tbody_item_list_suhu"></tbody>
+							</table>
+						</div>
+					</div>
+				</div>
+				<div class="col-md-12 mt-4 text-center">
+					<button type="button" id="start" class="btn btn-primary w-25 m-3">Auto</button>
+					<button type="button" id="stop" class="btn btn-danger w-25 m-3">Stop</button>
+				</div>
+			</div>
+		</div>
+
+		<!-- Optional JavaScript; choose one of the two! -->
+		<script src="https://code.jquery.com/jquery-3.5.1.js"></script>
+		<!-- Option 1: Bootstrap Bundle with Popper -->
+		<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-ka7Sk0Gln4gmtz2MlQnikT1wXgYsOg+OMhuP+IlRH9sENBO0LRn5q+8nbTov4+1p" crossorigin="anonymous"></script>
+		<script type="text/javascript" charset="utf8" src="https://cdn.datatables.net/1.11.3/js/jquery.dataTables.js"></script>
+
+		<script type="module">
+			// Import the functions you need from the SDKs you need
+			import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.3/firebase-app.js";
+			import { getAnalytics } from "https://www.gstatic.com/firebasejs/9.6.3/firebase-analytics.js";
+			import { getDatabase, ref, onValue, onChildAdded, child } from "https://www.gstatic.com/firebasejs/9.6.3/firebase-database.js";
+			const firebaseConfig = {
+				apiKey: "AIzaSyAw9NriLYU-waSt6JDvjIOs5qwYVDMcTzA",
+				authDomain: "iottubes-aa829.firebaseapp.com",
+				databaseURL: "https://iottubes-aa829-default-rtdb.asia-southeast1.firebasedatabase.app",
+				projectId: "iottubes-aa829",
+				storageBucket: "iottubes-aa829.appspot.com",
+				messagingSenderId: "94307755219",
+				appId: "1:94307755219:web:cf5b5c3a848444c25ae026",
+				measurementId: "G-5M2CFRMGSZ",
+			};
+
+			// Initialize Firebase
+			const app = initializeApp(firebaseConfig);
+			const database = getDatabase(app);
+
+			$(document).ready(function () {
+				let PulseTable = $("#pulse_datatables").DataTable({
+					searching: true,
+					responsive: true,
+					ordering: false,
+					lengthMenu: [
+						[10, 25, 50, 100, 200, -1],
+						[10, 25, 50, 100, 200, "All"],
+					],
+					language: {
+						search: "_INPUT_",
+						searchPlaceholder: "Cari..",
+					},
+				});
+				let TempTable = $("#temp_datatables").DataTable({
+					searching: true,
+					responsive: true,
+					ordering: false,
+					lengthMenu: [
+						[10, 25, 50, 100, 200, -1],
+						[10, 25, 50, 100, 200, "All"],
+					],
+					language: {
+						search: "_INPUT_",
+						searchPlaceholder: "Cari..",
+					},
+				});
+
+				const nadi = ref(database, "/nadi");
+				const suhu = ref(database, "/suhu");
+
+				let InterEvent, InterEvent2;
+				onValue(
+					nadi,
+					(snapshot) => {
+						var table = $("#pulse_datatables").DataTable();
+						snapshot.forEach((childSnapshot) => {
+							const childKey = childSnapshot.key;
+							const childData = childSnapshot.val();
+							PulseTable.row.add([childData]).draw(false);
+						});
+					},
+					{
+						onlyOnce: true,
+					}
+				);
+				onValue(
+					suhu,
+					(snapshot) => {
+						snapshot.forEach((childSnapshot) => {
+							const childKey = childSnapshot.key;
+							const childData = childSnapshot.val();
+							TempTable.row.add([childData]).draw(false);
+						});
+					},
+					{
+						onlyOnce: true,
+					}
+				);
+				$("#start").on("click", function () {
+					intervalFunction();
+					$("#text-status").find("span").text("True");
+				});
+				$("#stop").on("click", function () {
+					$("#text-status").find("span").text("False");
+					stopintervalFunction();
+				});
+
+				function intervalFunction() {
+					InterEvent = setInterval(function () {
+						onValue(
+							nadi,
+							(snapshot) => {
+								var table = $("#pulse_datatables").DataTable();
+								snapshot.forEach((childSnapshot) => {
+									const childKey = childSnapshot.key;
+									const childData = childSnapshot.val();
+									PulseTable.row.add([childData]).draw(false);
+								});
+							},
+							{
+								onlyOnce: true,
+							}
+						);
+						onValue(
+							suhu,
+							(snapshot) => {
+								snapshot.forEach((childSnapshot) => {
+									const childKey = childSnapshot.key;
+									const childData = childSnapshot.val();
+									TempTable.row.add([childData]).draw(false);
+								});
+							},
+							{
+								onlyOnce: true,
+							}
+						);
+					}, 10000);
+					InterEvent2 = setInterval(function () {
+						PulseTable.clear().draw();
+						TempTable.clear().draw();
+					}, 10000);
+				}
+				function stopintervalFunction() {
+					clearInterval(InterEvent);
+					clearInterval(InterEvent2);
+				}
+			});
+		</script>
+	</body>
+</html>
